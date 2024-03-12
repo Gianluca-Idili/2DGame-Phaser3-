@@ -5,8 +5,9 @@ import { Goblin } from "./enemies/Goblin.js";
 import { Slime } from "./enemies/Slime.js";
 import { Cloud } from "./Cloud.js";
 import { Door } from "./Door.js";
-
 export class Level extends Scene{
+    hp1;
+    hp2;
     startAnimation;
 	targetPosStartAnimation = 64;
 	door;
@@ -18,10 +19,10 @@ export class Level extends Scene{
     ];
     enemies = [];
     attacks = [];
-    immune = false; // Inizializza l'immunità a false
-    immuneDuration = 1000; // Durata dell'immunità in millisecondi
+    immune = false; 
+    immuneDuration = 1000; 
     lastCollisionTime = 0;
-
+    
 
     //serve per inizializzare i dati del livello
     init(){
@@ -38,7 +39,7 @@ export class Level extends Scene{
         this.load.spritesheet("fly","assets/fly_anim_spritesheet.png", { frameWidth: 16, frameHeight: 16 });
         this.load.spritesheet("goblin","assets/goblin_run_spritesheet.png", { frameWidth: 16, frameHeight: 16 });
         this.load.spritesheet("slime","assets/slime_run_spritesheet.png", { frameWidth: 16, frameHeight: 16 });
-
+        
         this.load.spritesheet("sword","assets/slash_effect_anim_spritesheet.png", { frameWidth: 16, frameHeight: 16 });
         this.load.spritesheet("cloud","assets/explosion_anim_spritesheet.png", { frameWidth: 32, frameHeight: 32 });
         this.load.spritesheet("door", "assets/door.png", { frameWidth: 32, frameHeight: 32 })
@@ -48,7 +49,7 @@ export class Level extends Scene{
     }
 
     //serve per costruire il livello
-    create(){
+    create(){    
         this.map = this.make.tilemap({ key: "tilemap" })
 		this.map.addTilesetImage("shooter")
 		this.map.createLayer("Floor", "shooter")
@@ -57,8 +58,23 @@ export class Level extends Scene{
 		this.map.createLayer("Decorations", "shooter")
 
 		this.player = new Player(this, 320, 0, "player_idle");
+        let hp = this.player.hp;
         this.player.setOrigin(0.5, 0.5);
         this.player.setBodySize(8, 10);    
+        
+        // crea i rettangoli
+        const graphics = this.add.graphics()
+        this.hp1 = graphics.fillStyle(0x808080).fillRoundedRect(150 * this.cameras.main.zoom, 10 * this.cameras.main.zoom, 50 * this.cameras.main.zoom, 5 * this.cameras.main.zoom, 2).setDepth(0);
+        this.hp2 = graphics.fillStyle(0x00ff00).fillRoundedRect(150 * this.cameras.main.zoom, 10 * this.cameras.main.zoom, 50 * this.cameras.main.zoom, 5 * this.cameras.main.zoom, 2).setDepth(1);
+    
+        // Aggiorna la posizione dei rettangoli in base alla posizione della telecamera e allo zoom
+        const cameraX = this.cameras.main.scrollX + 150 * this.cameras.main.zoom;
+        const cameraY = this.cameras.main.scrollY + 20 * this.cameras.main.zoom;
+        
+
+        // Aggiorna la posizione dei rettangoli
+        this.hp1.setPosition(cameraX, cameraY);
+        this.hp2.setPosition(cameraX, cameraY);
 
 		this.door = new Door(this, 320, 16, "door");
         
@@ -82,6 +98,8 @@ export class Level extends Scene{
     //rappresenta il game loop
     update(){
 
+        this.updateHPBarWidth(this.player.hp);
+
         if (this.startAnimation) {
 			this.physics.moveTo(this.player, this.player.x, this.targetPosStartAnimation, this.player.speed)
 			if (this.player.y >= this.targetPosStartAnimation) {
@@ -103,18 +121,24 @@ export class Level extends Scene{
 
         // Controllo dell'immunità dopo la collisione
         if (this.immune && this.time.now > this.lastCollisionTime + this.immuneDuration) {
-            this.immune = false; // Disabilita l'immunità quando scade la durata
+            // Disabilita l'immunità quando scade la durata
+            this.immune = false; 
         }
         
         this.physics.add.collider(this.player, this.enemies, (player, enemy) => {
             if (!this.immune) {
-                this.immune = true; // Attiva l'immunità dopo la collisione
-                this.lastCollisionTime = this.time.now; // Aggiorna il tempo dell'ultima collisione
+                // Attiva l'immunità dopo la collisione
+                this.immune = true; 
+                // Aggiorna il tempo dell'ultima collisione
+                this.lastCollisionTime = this.time.now; 
 
                 player.takeDamage(enemy.damage);
+
+                this.hp2.width = this.player.hp * this.cameras.main.zoom;
+                
                 if (this.immune) {
                     this.enemies.forEach(enemy => {
-                        enemy.setVelocity(0); // Imposta la velocità dei nemici a zero
+                        enemy.setVelocity(0); 
                     });
                 }
                 if (player.hp <= 0) {
@@ -139,7 +163,7 @@ export class Level extends Scene{
                 this.enemies.splice(this.enemies.indexOf(enemy), 1);
             }
         
-            // Distruggi l'attacco (come la spada) dopo la collisione
+            // Distruggi l'attacco  dopo la collisione
             attack.destroy();
         
             // Rimuovi l'attacco dalla lista degli attacchi
@@ -149,8 +173,25 @@ export class Level extends Scene{
         // Impostazione della velocità dei nemici a zero quando il giocatore è immune alla collisione
         if (this.immune) {
             this.enemies.forEach(enemy => {
-                enemy.setVelocity(0); // Imposta la velocità dei nemici a zero
+                enemy.setVelocity(0); 
             });
         }
+    }
+
+    // Funzione per aggiornare le dimensioni del rettangolo hp2 in base all'HP del giocatore
+    updateHPBarWidth(playerHP) {
+        const cameraX = this.cameras.main.scrollX + 10 * this.cameras.main.zoom;
+        const cameraY = this.cameras.main.scrollY + 40 * this.cameras.main.zoom;
+
+        const barWidth = 100 * this.cameras.main.zoom;
+        
+        // Calcola la larghezza della barra HP in base all'HP attuale del giocatore
+        const newWidth = (playerHP / 100) * barWidth ;
+        const lunghezza = newWidth / 3;
+
+        // Aggiorna le dimensioni e la posizione del rettangolo hp2
+        this.hp2.clear();
+        this.hp2.fillStyle(0x00ff00);
+        this.hp2.fillRoundedRect(cameraX, cameraY, lunghezza, 5 * this.cameras.main.zoom, 5); 
     }
 }
